@@ -1,0 +1,22 @@
+apiVersion: mission-control.flanksource.com/v1
+kind: Connection
+metadata:
+  name: mc-demo-postgres
+  namespace: mission-control
+spec:
+  postgres:
+    host:
+      value: postgres.mc-demo.svc.cluster.local:5432
+    database:
+      value: demo
+    username:
+      valueFrom:
+        secretKeyRef:
+          name: mc-demo-postgres
+          key: username
+    password:
+      valueFrom:
+        secretKeyRef:
+          name: mc-demo-postgres
+          key: password
+    insecureTLS: true

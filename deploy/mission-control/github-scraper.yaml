@@ -1,0 +1,26 @@
+apiVersion: configs.flanksource.com/v1
+kind: ScrapeConfig
+metadata:
+  name: mc-demo-github
+  namespace: mission-control
+spec:
+  schedule: "@every 5m"
+  github:
+    - repositories:
+        - owner: flanksource
+          repo: mc-demo-app
+---
+apiVersion: configs.flanksource.com/v1
+kind: ScrapeConfig
+metadata:
+  name: mc-demo-github-actions
+  namespace: mission-control
+spec:
+  schedule: "@every 2m"
+  githubActions:
+    - connection: connection://mission-control/github
+      owner: flanksource
+      repository: mc-demo-app
+      branch: main
+      workflows:
+        - Build

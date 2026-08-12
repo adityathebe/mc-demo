@@ -1,0 +1,35 @@
+apiVersion: configs.flanksource.com/v1
+kind: ScrapePlugin
+metadata:
+  name: mc-demo-relationships
+  namespace: mission-control
+spec:
+  relationship:
+    - filter: config_type == "Kubernetes::Deployment" && has(config.metadata.annotations) && "config.flanksource.com/repository" in config.metadata.annotations
+      type:
+        value: GitHub::Repository
+      external_id:
+        expr: config.metadata.annotations["config.flanksource.com/repository"]
+      scope:
+        value: all
+    - filter: config_type == "Postgres::Table" && config.id == "postgres/demo/public/messages"
+      type:
+        value: GitHub::Repository
+      external_id:
+        value: github/adityathebe/mc-demo
+      scope:
+        value: all
+    - filter: config_type == "Postgres::Migration"
+      type:
+        value: GitHub::Repository
+      external_id:
+        value: github/adityathebe/mc-demo
+      scope:
+        value: all
+    - filter: config_type == "Postgres::Migration"
+      type:
+        value: Postgres::Table
+      external_id:
+        value: postgres/demo/public/messages
+      scope:
+        value: all

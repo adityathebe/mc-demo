@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - secret-copy.yaml
+  - postgres-connection.yaml
+  - relationship-plugin.yaml
+  - kubernetes-scraper.yaml
+  - github-scraper.yaml
+  - sql-scraper.yaml

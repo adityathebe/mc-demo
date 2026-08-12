@@ -1,0 +1,44 @@
+apiVersion: configs.flanksource.com/v1
+kind: ScrapeConfig
+metadata:
+  name: mc-demo-kubernetes
+  namespace: mission-control
+spec:
+  schedule: "@every 1m"
+  kubernetes:
+    - clusterName: homelab
+      namespace: mc-demo
+      watch:
+        - apiVersion: apps/v1
+          kind: Deployment
+        - apiVersion: apps/v1
+          kind: StatefulSet
+        - apiVersion: v1
+          kind: Event
+        - apiVersion: v1
+          kind: Pod
+        - apiVersion: v1
+          kind: Service
+      exclusions:
+        kind:
+          - Secret
+          - ReplicaSet
+      event:
+        severityKeywords:
+          error:
+            - failed
+            - error
+            - backoff
+          warn:
+            - unhealthy
+      transform:
+        changes:
+          mapping:
+            - filter: change_type == "BackOff" || (change_type == "diff" && summary == "status.containerStatuses")
+              type: ApplicationCrashLooping
+              severity: high
+  retention:
+    changes:
+      - name: ApplicationCrashLooping
+        count: 100
+        age: 168h

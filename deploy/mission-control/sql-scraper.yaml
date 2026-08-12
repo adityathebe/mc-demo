@@ -1,0 +1,116 @@
+apiVersion: configs.flanksource.com/v1
+kind: ScrapeConfig
+metadata:
+  name: mc-demo-database
+  namespace: mission-control
+spec:
+  full: true
+  schedule: "@every 1m"
+  sql:
+    - connection: connection://mission-control/mc-demo-postgres
+      query: |
+        WITH tables AS (
+          SELECT
+            c.oid,
+            n.nspname AS schema_name,
+            c.relname AS table_name,
+            obj_description(c.oid, 'pg_class') AS description
+          FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE c.relkind IN ('r', 'p')
+            AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+        ),
+        columns AS (
+          SELECT
+            c.oid,
+            jsonb_agg(
+              jsonb_build_object(
+                'name', a.attname,
+                'type', format_type(a.atttypid, a.atttypmod),
+                'nullable', NOT a.attnotnull,
+                'default', pg_get_expr(ad.adbin, ad.adrelid)
+              ) ORDER BY a.attnum
+            ) AS columns
+          FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          JOIN pg_attribute a ON a.attrelid = c.oid
+          LEFT JOIN pg_attrdef ad ON ad.adrelid = c.oid AND ad.adnum = a.attnum
+          WHERE c.relkind IN ('r', 'p')
+            AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+            AND a.attnum > 0
+            AND NOT a.attisdropped
+          GROUP BY c.oid
+        ),
+        indexes AS (
+          SELECT
+            i.indrelid AS oid,
+            jsonb_agg(
+              jsonb_build_object(
+                'name', ic.relname,
+                'definition', pg_get_indexdef(i.indexrelid),
+                'primary', i.indisprimary,
+                'unique', i.indisunique
+              ) ORDER BY ic.relname
+            ) AS indexes
+          FROM pg_index i
+          JOIN pg_class ic ON ic.oid = i.indexrelid
+          GROUP BY i.indrelid
+        )
+        SELECT jsonb_build_object(
+          'id', 'postgres/demo/' || t.schema_name || '/' || t.table_name,
+          'name', t.schema_name || '.' || t.table_name,
+          'schema', t.schema_name,
+          'table', t.table_name,
+          'description', t.description,
+          'columns', COALESCE(c.columns, '[]'::jsonb),
+          'indexes', COALESCE(i.indexes, '[]'::jsonb)
+        ) AS config
+        FROM tables t
+        LEFT JOIN columns c USING (oid)
+        LEFT JOIN indexes i USING (oid)
+        ORDER BY t.schema_name, t.table_name
+      id: $.id
+      name: $.name
+      type: Postgres::Table
+      class: Database
+    - connection: connection://mission-control/mc-demo-postgres
+      query: |
+        SELECT jsonb_build_object(
+          'id', 'postgres/demo/migration/' || version_id::text,
+          'name', 'Migration ' || version_id::text,
+          'version', version_id,
+          'applied', is_applied,
+          'applied_at', to_char(tstamp AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+          'config', jsonb_build_object(
+            'version', version_id,
+            'applied', is_applied,
+            'applied_at', to_char(tstamp AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
+          ),
+          'changes', jsonb_build_array(jsonb_build_object(
+            'external_change_id', 'goose/' || id::text,
+            'change_type', CASE WHEN is_applied THEN 'MigrationApplied' ELSE 'MigrationRolledBack' END,
+            'external_id', 'postgres/demo/migration/' || version_id::text,
+            'config_type', 'Postgres::Migration',
+            'created_at', to_char(tstamp AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+            'summary', CASE WHEN is_applied THEN 'Goose migration ' || version_id::text || ' applied' ELSE 'Goose migration ' || version_id::text || ' rolled back' END,
+            'severity', 'info',
+            'source', 'goose'
+          ))
+        ) AS result
+        FROM goose_db_version
+        WHERE version_id > 0
+        ORDER BY id
+      id: $.id
+      name: $.name
+      type: Postgres::Migration
+      class: DatabaseMigration
+      transform:
+        expr: |
+          [{
+            "id": config.id,
+            "name": config.name,
+            "config_type": "Postgres::Migration",
+            "config_class": "DatabaseMigration",
+            "config": config.config,
+            "changes": config.changes
+          }].toJSON()
