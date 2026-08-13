@@ -15,5 +15,5 @@ WORKDIR /app
 COPY --from=build /out/mc-demo-app /app/mc-demo-app
 COPY --from=build /src/migrations /app/migrations
 EXPOSE 8080
-USER nonroot:nonroot
+USER 65532:65532
 ENTRYPOINT ["/app/mc-demo-app"]
