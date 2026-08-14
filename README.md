@@ -2,7 +2,7 @@
 
 A deliberately small Go and PostgreSQL application for demonstrating how Mission Control correlates source, deployment, database, and runtime changes during incident diagnosis.
 
-The application exposes a message API and applies embedded-in-image SQL migrations with [goose](https://github.com/pressly/goose). Migration `00002` intentionally renames the `body` column while the application still depends on it, producing a Kubernetes crash loop for incident diagnosis.
+The application exposes a message API and applies embedded-in-image SQL migrations with [goose](https://github.com/pressly/goose). Migration `00002` renames the `body` column while the application still depends on it, producing a Kubernetes crash loop for incident diagnosis. Migration `00003` restores the expected column and recovers the application.
 
 ## Architecture
 
